@@ -8,11 +8,24 @@ const TeamSchema = new Schema(
     meetingDay: { type: String },
     meetingTime: { type: String },
     teamImage: { type: String },
-    teamLeaderName: { type: String },
-    members: [{ type: String }],
+    teamLeader: {
+      name: { type: String },
+      phone1: { type: String },
+      phone2: { type: String },
+      phone3: { type: String },
+    },
+    members: [
+      {
+        name: { type: String },
+        phone1: { type: String },
+        phone2: { type: String },
+        phone3: { type: String },
+      },
+    ],
     notes: { type: String },
   },
   { timestamps: true }
 );
 
 export default model("Team", TeamSchema);
+

@@ -1,11 +1,29 @@
+import fs from "fs";
 import Gallery from "../Models/Gallery.js";
+import cloudinary from "../config/cloudinary.js";
 
 export const uploadImage = async (req, res) => {
   try {
-    const imageUrl = req.file ? req.file.path : req.body.imageUrl;
+    let imageUrl = req.body.imageUrl;
+    let publicId = undefined;
+
+    if (req.file && req.file.path) {
+      const result = await cloudinary.uploader.upload(req.file.path, {
+        folder: "gallery",
+      });
+      imageUrl = result.secure_url;
+      publicId = result.public_id;
+
+      // remove local file
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.warn("Failed to remove temp file:", err.message);
+      });
+    }
+
     if (!imageUrl)
       return res.status(400).json({ message: "Image is required" });
-    const item = await Gallery.create({ imageUrl, caption: req.body.caption });
+
+    const item = await Gallery.create({ imageUrl, publicId, caption: req.body.caption });
     res.status(201).json(item);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -26,6 +44,15 @@ export const deleteImage = async (req, res) => {
     const { id } = req.params;
     const item = await Gallery.findByIdAndDelete(id);
     if (!item) return res.status(404).json({ message: "Not found" });
+
+    if (item.publicId) {
+      try {
+        await cloudinary.uploader.destroy(item.publicId);
+      } catch (e) {
+        console.warn("Failed to remove Cloudinary image:", e.message);
+      }
+    }
+
     res.json({ message: "Deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });

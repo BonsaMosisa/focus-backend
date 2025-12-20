@@ -8,22 +8,15 @@ const AdminSchema = new Schema(
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    role: { type: String, enum: ["admin", "super"], default: "admin" },
     disabled: { type: Boolean, default: false },
-    isSuper: { type: Boolean, default: false },
   },
   { timestamps: true }
 );
 
-AdminSchema.pre("save", async function (next) {
-  try {
-    if (!this.isModified("password")) return next();
-    const salt = await bcrypt.genSalt(10);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (err) {
-    next(err);
-  }
+AdminSchema.pre("save", async function () {
+  if (!this.isModified("password")) return;
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
 });
 
 AdminSchema.methods.comparePassword = async function (candidate) {

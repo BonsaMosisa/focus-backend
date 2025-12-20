@@ -25,10 +25,3 @@ export const adminAuth = async (req, res, next) => {
 
 export default adminAuth;
 
-export const requireSuperAdmin = (req, res, next) => {
-  const admin = req.admin;
-  if (!admin) return res.status(401).json({ message: "Unauthorized" });
-  if (!admin.isSuper)
-    return res.status(403).json({ message: "Super admin required" });
-  next();
-};

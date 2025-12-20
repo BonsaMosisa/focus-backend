@@ -28,8 +28,6 @@ export const createAdmin = async (req, res) => {
       name,
       email,
       password,
-      role: "admin",
-      isSuper: false,
     });
     res
       .status(201)
@@ -55,8 +53,6 @@ export const disableAdmin = async (req, res) => {
     const { id } = req.params;
     const target = await Admin.findById(id);
     if (!target) return res.status(404).json({ message: "Admin not found" });
-    if (target.isSuper)
-      return res.status(403).json({ message: "Cannot disable super admin" });
     target.disabled = true;
     await target.save();
     res.json({ message: "Admin disabled" });
@@ -85,8 +81,6 @@ export const deleteAdmin = async (req, res) => {
     const { id } = req.params;
     const target = await Admin.findById(id);
     if (!target) return res.status(404).json({ message: "Admin not found" });
-    if (target.isSuper)
-      return res.status(403).json({ message: "Cannot delete super admin" });
     await Admin.findByIdAndDelete(id);
     res.json({ message: "Admin deleted" });
   } catch (err) {
@@ -102,7 +96,13 @@ export const loginAdmin = async (req, res) => {
       return res.status(400).json({ message: "Email and password required" });
 
     const admin = await Admin.findOne({ email });
-    if (!admin) return res.status(400).json({ message: "Invalid credentials" });
+    if (!admin) {
+      const total = await Admin.countDocuments();
+      if (total === 0) {
+        return res.status(400).json({ message: "No admin registered" });
+      }
+      return res.status(400).json({ message: "Invalid credentials" });
+    }
 
     const isMatch = await admin.comparePassword(password);
     if (!isMatch)
