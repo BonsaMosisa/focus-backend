@@ -4,7 +4,6 @@ import "dotenv/config";
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
-import fileUpload from "express-fileupload";
 
 // Initialize app
 const app = express();
@@ -14,7 +13,8 @@ const app = express();
 // --------------------
 app.use(cors());
 app.use(express.json()); // Parse JSON requests
-app.use(fileUpload());
+// Using multer via `src/middleware/upload.js` for multipart/form-data handling.
+// Do not use `express-fileupload` here to avoid parser conflicts.
 
 // --------------------
 // Database Connection
