@@ -8,20 +8,12 @@ const TeamSchema = new Schema(
     meetingDay: { type: String },
     meetingTime: { type: String },
     teamImage: { type: String },
+    publicId: { type: String },
     teamLeader: {
       name: { type: String },
-      phone1: { type: String },
-      phone2: { type: String },
-      phone3: { type: String },
+      phone: { type: String },
     },
-    members: [
-      {
-        name: { type: String },
-        phone1: { type: String },
-        phone2: { type: String },
-        phone3: { type: String },
-      },
-    ],
+    // members are no longer stored separately; put member details in `notes`
     notes: { type: String },
   },
   { timestamps: true }

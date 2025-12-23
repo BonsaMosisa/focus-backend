@@ -1,4 +1,6 @@
+import fs from "fs";
 import Team from "../Models/Team.js";
+import cloudinary from "../config/cloudinary.js";
 
 const tryParse = (val) => {
   if (!val) return undefined;
@@ -12,14 +14,12 @@ const tryParse = (val) => {
   return val;
 };
 
-const normalizeMember = (m) => {
+const normalizePerson = (m) => {
   if (!m) return undefined;
   if (typeof m === "string") return { name: m };
   return {
     name: m.name || "",
-    phone1: m.phone1 || m.phone || "",
-    phone2: m.phone2 || "",
-    phone3: m.phone3 || "",
+    phone: m.phone || m.phone1 || "",
   };
 };
 
@@ -30,7 +30,7 @@ export const createTeam = async (req, res) => {
     const meetingDay = raw.meetingDay;
     const meetingTime = raw.meetingTime;
     const notes = raw.notes;
-    const teamImage = req.file ? req.file.path : raw.teamImage;
+    let teamImage = req.file ? req.file.path : raw.teamImage;
 
     if (!name)
       return res.status(400).json({ message: "Team name is required" });
@@ -40,28 +40,40 @@ export const createTeam = async (req, res) => {
     if (!teamLeader && raw.teamLeaderName) {
       teamLeader = {
         name: raw.teamLeaderName,
-        phone1: raw.teamLeaderPhone1 || "",
-        phone2: raw.teamLeaderPhone2 || "",
-        phone3: raw.teamLeaderPhone3 || "",
+        phone: raw.teamLeaderPhone1 || raw.teamLeaderPhone || "",
       };
     }
+    // members are no longer stored; any member detail should be placed in `notes`
 
-    // members can be an array of objects, array of names, or JSON string
-    let members = tryParse(raw.members) || [];
-    if (!Array.isArray(members) && typeof members === "string" && members.length) {
-      // attempt comma split fallback
-      members = members.split(",").map((s) => s.trim()).filter(Boolean);
+    let publicId = undefined;
+    if (req.file && req.file.path) {
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "teams",
+        });
+        if (!result || !result.public_id || !result.secure_url) {
+          throw new Error("Cloudinary returned an invalid response");
+        }
+        teamImage = result.secure_url;
+        publicId = result.public_id;
+      } catch (e) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.warn("Failed to remove temp file:", err.message);
+        });
+        return res.status(500).json({ message: "Image upload failed", error: e.message });
+      }
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.warn("Failed to remove temp file:", err.message);
+      });
     }
-    if (!Array.isArray(members)) members = [];
-    members = members.map(normalizeMember).filter(Boolean);
 
     const team = await Team.create({
       name,
       meetingDay,
       meetingTime,
       teamImage,
+      publicId,
       teamLeader,
-      members,
       notes,
     });
     res.status(201).json(team);
@@ -88,28 +100,45 @@ export const updateTeam = async (req, res) => {
     if (raw.meetingDay) update.meetingDay = raw.meetingDay;
     if (raw.meetingTime) update.meetingTime = raw.meetingTime;
     if (raw.notes) update.notes = raw.notes;
-    if (req.file) update.teamImage = req.file.path;
+    if (req.file && req.file.path) {
+      let result;
+      try {
+        result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "teams",
+        });
+        if (!result || !result.public_id || !result.secure_url) {
+          throw new Error("Cloudinary returned an invalid response");
+        }
+        update.teamImage = result.secure_url;
+        update.publicId = result.public_id;
+      } catch (e) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.warn("Failed to remove temp file:", err.message);
+        });
+        return res.status(500).json({ message: "Image upload failed", error: e.message });
+      }
+      fs.unlink(req.file.path, (err) => {
+        if (err) console.warn("Failed to remove temp file:", err.message);
+      });
+
+      const existing = await Team.findById(id).select("publicId");
+      if (existing && existing.publicId) {
+        try {
+          await cloudinary.uploader.destroy(existing.publicId);
+        } catch (e) {
+          console.warn("Failed to remove previous Cloudinary image:", e.message);
+        }
+      }
+    }
 
     if (raw.teamLeader) {
       const parsedLeader = tryParse(raw.teamLeader);
-      update.teamLeader = normalizeMember(parsedLeader);
+      update.teamLeader = normalizePerson(parsedLeader);
     } else if (raw.teamLeaderName) {
       update.teamLeader = {
         name: raw.teamLeaderName,
-        phone1: raw.teamLeaderPhone1 || "",
-        phone2: raw.teamLeaderPhone2 || "",
-        phone3: raw.teamLeaderPhone3 || "",
+        phone: raw.teamLeaderPhone1 || raw.teamLeaderPhone || "",
       };
-    }
-
-    if (raw.members) {
-      let members = tryParse(raw.members);
-      if (!Array.isArray(members) && typeof members === "string") {
-        members = members.split(",").map((s) => s.trim()).filter(Boolean);
-      }
-      if (Array.isArray(members)) {
-        update.members = members.map(normalizeMember);
-      }
     }
 
     const t = await Team.findByIdAndUpdate(id, update, { new: true });
@@ -125,6 +154,14 @@ export const deleteTeam = async (req, res) => {
     const { id } = req.params;
     const t = await Team.findByIdAndDelete(id);
     if (!t) return res.status(404).json({ message: "Team not found" });
+    if (t.publicId) {
+      try {
+        await cloudinary.uploader.destroy(t.publicId);
+      } catch (e) {
+        console.warn("Failed to remove Cloudinary image:", e.message);
+      }
+    }
+
     res.json({ message: "Deleted" });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -141,7 +178,9 @@ export const addMember = async (req, res) => {
     }
     const t = await Team.findById(id);
     if (!t) return res.status(404).json({ message: "Team not found" });
-    t.members.push(normalizeMember(member));
+    // Members are stored in notes now. Append a line for the added member.
+    const entry = `Member: ${member.name}${member.phone ? ` (${member.phone})` : ""}`;
+    t.notes = t.notes && t.notes.length ? `${t.notes}\n${entry}` : entry;
     await t.save();
     res.json(t);
   } catch (err) {

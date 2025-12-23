@@ -10,6 +10,7 @@ const TeachingSchema = new Schema(
     teacher: { type: String },
     otherNotes: { type: String },
     mediaUrl: { type: String },
+    publicId: { type: String },
   },
   { timestamps: true }
 );

@@ -10,9 +10,9 @@ import {
 import { adminAuth } from "../middleware/adminAuth.js";
 import upload from "../middleware/upload.js";
 
-router.post("/", adminAuth, upload.single("teamImage"), createTeam);
+router.post("/", adminAuth, upload.any(), createTeam);
 router.get("/", getTeams);
-router.put("/:id", adminAuth, upload.single("teamImage"), updateTeam);
+router.put("/:id", adminAuth, upload.any(), updateTeam);
 router.delete("/:id", adminAuth, deleteTeam);
 router.post("/:id/members", adminAuth, addMember);
 
