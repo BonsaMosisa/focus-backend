@@ -43,3 +43,7 @@ run().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
+
+//run like this on the terminal to register admins
+//node createAdmin.js --name "Bonsa Adugna" --email "Bonsa@gmail.com" --password "Bonsa12345"

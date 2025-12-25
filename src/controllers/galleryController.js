@@ -8,12 +8,21 @@ export const uploadImage = async (req, res) => {
     let publicId = undefined;
 
     if (req.file && req.file.path) {
-      const result = await cloudinary.uploader.upload(req.file.path, {
-        folder: "gallery",
-      });
-      imageUrl = result.secure_url;
-      publicId = result.public_id;
-
+      try {
+        const result = await cloudinary.uploader.upload(req.file.path, {
+          folder: "focusgallery",
+        });
+        if (!result || !result.public_id || !result.secure_url) {
+          throw new Error("Cloudinary returned an invalid response");
+        }
+        imageUrl = result.secure_url;
+        publicId = result.public_id;
+      } catch (e) {
+        fs.unlink(req.file.path, (err) => {
+          if (err) console.warn("Failed to remove temp file:", err.message);
+        });
+        return res.status(500).json({ message: "Image upload failed", error: e.message });
+      }
       // remove local file
       fs.unlink(req.file.path, (err) => {
         if (err) console.warn("Failed to remove temp file:", err.message);

@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import Admin from "../Models/Admin.js";
 
 const signToken = (admin) => {
@@ -89,6 +90,83 @@ export const deleteAdmin = async (req, res) => {
   }
 };
 
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: "Email required" });
+    const admin = await Admin.findOne({ email });
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    const token = crypto.randomBytes(20).toString("hex");
+    admin.resetPasswordToken = token;
+    admin.resetPasswordExpires = Date.now() + 3600 * 1000; // 1 hour
+    await admin.save();
+
+    // In production, you'd email the token. For now return token in response for dev/testing.
+    res.json({ message: "Password reset token generated", token });
+  } catch (err) {
+    console.error(err.stack || err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    if (!token || !password)
+      return res.status(400).json({ message: "Token and new password required" });
+
+    const admin = await Admin.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+    if (!admin) return res.status(400).json({ message: "Invalid or expired token" });
+
+    admin.password = password;
+    admin.resetPasswordToken = undefined;
+    admin.resetPasswordExpires = undefined;
+    await admin.save();
+
+    res.json({ message: "Password has been reset" });
+  } catch (err) {
+    console.error(err.stack || err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const getAdminById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const admin = await Admin.findById(id).select("-password");
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+    res.json(admin);
+  } catch (err) {
+    console.error(err.stack || err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+export const updateAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, email, password } = req.body;
+    const admin = await Admin.findById(id);
+    if (!admin) return res.status(404).json({ message: "Admin not found" });
+
+    if (name) admin.name = name;
+    if (email) admin.email = email;
+    if (typeof req.body.disabled !== 'undefined') admin.disabled = !!req.body.disabled;
+    if (password) admin.password = password; // will be hashed by pre-save
+
+    await admin.save();
+    const out = await Admin.findById(id).select("-password");
+    res.json(out);
+  } catch (err) {
+    console.error(err.stack || err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const loginAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -122,3 +200,4 @@ export const loginAdmin = async (req, res) => {
 export const getProfile = async (req, res) => {
   res.json({ admin: req.admin });
 };
+``
