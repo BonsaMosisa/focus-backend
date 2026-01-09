@@ -9,6 +9,8 @@ import {
 import { adminAuth } from "../middleware/adminAuth.js";
 import upload from "../middleware/upload.js";
 
+
+
 router.post("/", adminAuth, upload.single("image"), createAnnouncement);
 router.get("/", getAnnouncements);
 router.put("/:id", adminAuth, upload.single("image"), updateAnnouncement);

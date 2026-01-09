@@ -30,7 +30,7 @@ const run = async () => {
   await mongoose.connect(process.env.MONGO_URI);
   const exists = await Admin.findOne({ email });
   if (exists) {
-    console.error("Admin with that email already exists");
+    console.error("Admin with that email already exists try another");
     process.exit(1);
   }
   const admin = await Admin.create({ name, email, password });
