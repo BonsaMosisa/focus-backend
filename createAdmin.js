@@ -24,7 +24,7 @@ if (!name || !email || !password) {
 
 const run = async () => {
   if (!process.env.MONGO_URI) {
-    console.error("MONGO_URI not set in environment or .env");
+    console.error("MONGO_URI not set in environment or .env if not try");
     process.exit(1);
   }
   await mongoose.connect(process.env.MONGO_URI);
