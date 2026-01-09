@@ -21,6 +21,7 @@ app.use(express.json()); // Parse JSON requests
 // --------------------
 mongoose
   .connect(process.env.MONGO_URI)
+  
   .then(() => {
     console.log("MongoDB connected successfully");
   })
@@ -29,6 +30,8 @@ mongoose
     process.exit(1);
   });
 
+
+  
 // --------------------
 // Routes (Admin-only system)
 // --------------------

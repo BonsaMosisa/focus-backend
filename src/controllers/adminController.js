@@ -24,7 +24,7 @@ export const createAdmin = async (req, res) => {
         .json({ message: "Name, email and password required" });
     const exists = await Admin.findOne({ email });
     if (exists)
-      return res.status(400).json({ message: "Admin already exists" });
+      return res.status(400).json({ message: "Admin already exists ok" });
     const admin = await Admin.create({
       name,
       email,
